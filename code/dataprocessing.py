@@ -9,7 +9,7 @@ def read_csv(path):
         md_data += [[float(i) for i in row] for row in reader]
         return torch.Tensor(md_data)
 
-
+#若两个节点的值不等于0，则有一条边
 def get_edge_index(matrix):
     edge_index = [[], []]
     for i in range(matrix.size(0)):
@@ -27,13 +27,14 @@ def data_pro(args):
 
     zero_index = []
     one_index = []
+    #将数据集的索引分成小于1和大于1的
     for i in range(dataset['md_p'].size(0)):
         for j in range(dataset['md_p'].size(1)):
             if dataset['md_p'][i][j] < 1:
                 zero_index.append([i, j])
             if dataset['md_p'][i][j] >= 1:
                 one_index.append([i, j])
-    random.shuffle(one_index)
+    random.shuffle(one_index)  #将序列的所有元素随机排序
     random.shuffle(zero_index)
     zero_tensor = torch.LongTensor(zero_index)
     one_tensor = torch.LongTensor(one_index)

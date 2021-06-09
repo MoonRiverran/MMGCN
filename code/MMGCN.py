@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch_geometric.nn import GCNConv
 torch.backends.cudnn.enabled = False
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class MMGCN(nn.Module):
     def __init__(self, args):
@@ -51,31 +52,31 @@ class MMGCN(nn.Module):
         x_m = torch.randn(self.args.miRNA_number, self.args.fm)
         x_d = torch.randn(self.args.disease_number, self.args.fd)
 
+        #公式9
+        x_m_f1 = torch.relu(self.gcn_x1_f(x_m.to(device), data['mm_f']['edges'].to(device), data['mm_f']['data_matrix'][data['mm_f']['edges'][0], data['mm_f']['edges'][1]].to(device)))
+        x_m_f2 = torch.relu(self.gcn_x2_f(x_m_f1, data['mm_f']['edges'].to(device), data['mm_f']['data_matrix'][data['mm_f']['edges'][0], data['mm_f']['edges'][1]].to(device)))
 
-        x_m_f1 = torch.relu(self.gcn_x1_f(x_m.cuda(), data['mm_f']['edges'].cuda(), data['mm_f']['data_matrix'][data['mm_f']['edges'][0], data['mm_f']['edges'][1]].cuda()))
-        x_m_f2 = torch.relu(self.gcn_x2_f(x_m_f1, data['mm_f']['edges'].cuda(), data['mm_f']['data_matrix'][data['mm_f']['edges'][0], data['mm_f']['edges'][1]].cuda()))
+        x_m_s1 = torch.relu(self.gcn_x1_s(x_m.to(device), data['mm_s']['edges'].to(device), data['mm_s']['data_matrix'][data['mm_s']['edges'][0], data['mm_s']['edges'][1]].to(device)))
+        x_m_s2 = torch.relu(self.gcn_x2_s(x_m_s1, data['mm_s']['edges'].to(device), data['mm_s']['data_matrix'][data['mm_s']['edges'][0], data['mm_s']['edges'][1]].to(device)))
 
-        x_m_s1 = torch.relu(self.gcn_x1_s(x_m.cuda(), data['mm_s']['edges'].cuda(), data['mm_s']['data_matrix'][data['mm_s']['edges'][0], data['mm_s']['edges'][1]].cuda()))
-        x_m_s2 = torch.relu(self.gcn_x2_s(x_m_s1, data['mm_s']['edges'].cuda(), data['mm_s']['data_matrix'][data['mm_s']['edges'][0], data['mm_s']['edges'][1]].cuda()))
+        y_d_f1 = torch.relu(self.gcn_y1_f(x_d.to(device), data['dd_f']['edges'].to(device), data['dd_f']['data_matrix'][data['dd_f']['edges'][0], data['dd_f']['edges'][1]].to(device)))
+        y_d_f2 = torch.relu(self.gcn_y2_f(y_d_f1, data['dd_f']['edges'].to(device), data['dd_f']['data_matrix'][data['dd_f']['edges'][0], data['dd_f']['edges'][1]].to(device)))
 
-        y_d_f1 = torch.relu(self.gcn_y1_f(x_d.cuda(), data['dd_f']['edges'].cuda(), data['dd_f']['data_matrix'][data['dd_f']['edges'][0], data['dd_f']['edges'][1]].cuda()))
-        y_d_f2 = torch.relu(self.gcn_y2_f(y_d_f1, data['dd_f']['edges'].cuda(), data['dd_f']['data_matrix'][data['dd_f']['edges'][0], data['dd_f']['edges'][1]].cuda()))
-
-        y_d_s1 = torch.relu(self.gcn_y1_s(x_d.cuda(), data['dd_s']['edges'].cuda(), data['dd_s']['data_matrix'][data['dd_s']['edges'][0], data['dd_s']['edges'][1]].cuda()))
-        y_d_s2 = torch.relu(self.gcn_y2_s(y_d_s1, data['dd_s']['edges'].cuda(), data['dd_s']['data_matrix'][data['dd_s']['edges'][0], data['dd_s']['edges'][1]].cuda()))
+        y_d_s1 = torch.relu(self.gcn_y1_s(x_d.to(device), data['dd_s']['edges'].to(device), data['dd_s']['data_matrix'][data['dd_s']['edges'][0], data['dd_s']['edges'][1]].to(device)))
+        y_d_s2 = torch.relu(self.gcn_y2_s(y_d_s1, data['dd_s']['edges'].to(device), data['dd_s']['data_matrix'][data['dd_s']['edges'][0], data['dd_s']['edges'][1]].to(device)))
 
         XM = torch.cat((x_m_f1, x_m_f2, x_m_s1, x_m_s2), 1).t()
 
         XM = XM.view(1, self.args.view*self.args.gcn_layers, self.args.fm, -1)
 
-        x_channel_attenttion = self.globalAvgPool_x(XM)
+        x_channel_attenttion = self.globalAvgPool_x(XM) #公式18 平均池化
         x_channel_attenttion = x_channel_attenttion.view(x_channel_attenttion.size(0), -1)
-        x_channel_attenttion = self.fc1_x(x_channel_attenttion)
-        x_channel_attenttion = torch.relu(x_channel_attenttion)
+        x_channel_attenttion = self.fc1_x(x_channel_attenttion) #线性变化
+        x_channel_attenttion = torch.relu(x_channel_attenttion) #公式19
         x_channel_attenttion = self.fc2_x(x_channel_attenttion)
-        x_channel_attenttion = self.sigmoidx(x_channel_attenttion)
+        x_channel_attenttion = self.sigmoidx(x_channel_attenttion) #公式19
         x_channel_attenttion = x_channel_attenttion.view(x_channel_attenttion.size(0), x_channel_attenttion.size(1), 1, 1)
-        XM_channel_attention = x_channel_attenttion * XM
+        XM_channel_attention = x_channel_attenttion * XM  #公式20
 
         XM_channel_attention = torch.relu(XM_channel_attention)
 
